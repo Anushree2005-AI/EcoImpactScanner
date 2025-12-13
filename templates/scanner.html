@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EcoImpactScanner • Planetary Intelligence</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <style>
+    :root {
+      --primary: #4361ee;
+      --accent: #10b981;
+      --glow: #60a5fa;
+      --text: #e2e8f0;
+      --card: rgba(15, 23, 42, 0.92);
+      --border: rgba(67, 97, 238, 0.5);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; overflow-x:hidden; }
+    body {
+      font-family:'Inter',sans-serif;
+      background: radial-gradient(circle at 20% 80%, #1e293b 0%, #0f172a 70%);
+      color:var(--text);
+      min-height:100vh;
+    }
+    .nebula-bg{
+      position:fixed; inset:0; z-index:-2;
+      background:
+        radial-gradient(circle at 20% 80%, rgba(67,97,238,0.15) 0%, transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(16,185,129,0.15) 0%, transparent 60%);
+      animation:drift 120s linear infinite;
+    }
+    @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(100px,-100px)}}
+
+    .container{
+      max-width:1400px;
+      margin:0 auto;
+      padding:1.5rem;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+      z-index:1;
+    }
+    .header{
+      text-align:center;
+      padding:2rem 1rem 1.5rem;
+    }
+    .header h1{
+      font-size:3rem;
+      font-weight:900;
+      background:linear-gradient(90deg,#60a5fa,#a78bfa);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      text-shadow:0 0 50px rgba(67,97,238,0.7);
+      margin-bottom:0.7rem;
+    }
+    .header p{
+      font-size:1.02rem;
+      max-width:800px;
+      margin:0 auto;
+      opacity:0.9;
+    }
+
+    .content{
+      display:grid;
+      grid-template-columns:1fr 1.5fr;
+      gap:2rem;
+      flex:1;
+      align-items:flex-start;
+    }
+    @media(max-width:1100px){.content{grid-template-columns:1fr;}}
+
+    .input-card,.results-card{
+      background:var(--card);
+      border-radius:1.5rem;
+      padding:2rem;
+      border:1px solid var(--border);
+      backdrop-filter:blur(30px);
+      box-shadow:0 20px 60px rgba(0,0,0,0.7);
+    }
+
+    .search-form{display:flex;gap:1rem;margin-bottom:1rem;}
+    .search-input{
+      flex:1;
+      padding:1rem 1.5rem;
+      border:none;
+      border-radius:1rem;
+      background:rgba(30,41,59,0.9);
+      color:#fff;
+      outline:none;
+      box-shadow:0 10px 30px rgba(0,0,0,0.5);
+      transition:0.3s;
+    }
+    .search-input:focus{
+      transform:translateY(-3px);
+      box-shadow:0 18px 45px rgba(67,97,238,0.8);
+    }
+    .search-btn{
+      padding:1rem 1.8rem;
+      border:none;
+      border-radius:1rem;
+      background:linear-gradient(135deg,var(--primary),#3b82f6);
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 20px 60px rgba(67,97,238,0.7);
+      transition:0.3s;
+      white-space:nowrap;
+    }
+    .search-btn:hover{
+      transform:translateY(-3px) scale(1.03);
+      box-shadow:0 26px 70px rgba(67,97,238,0.9);
+    }
+    .search-btn:disabled{
+      background:#4b5563;
+      box-shadow:none;
+      transform:none;
+      cursor:not-allowed;
+    }
+
+    .examples{margin-top:1.4rem;}
+    .examples h3{
+      font-size:0.85rem;
+      text-transform:uppercase;
+      letter-spacing:1px;
+      color:#cbd5e1;
+      margin-bottom:0.5rem;
+    }
+    .example-tags{display:flex;flex-wrap:wrap;gap:0.8rem;}
+    .example-tag{
+      padding:0.55rem 1.1rem;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(67,97,238,0.18);
+      font-size:0.83rem;
+      cursor:pointer;
+      transition:0.3s;
+    }
+    .example-tag:hover{
+      background:var(--primary);
+      transform:translateY(-2px);
+    }
+    .example-tag.pincode{
+      background:rgba(16,185,129,0.15);
+      border-color:rgba(16,185,129,0.5);
+    }
+    .example-tag.pincode:hover{background:var(--accent);}
+
+    .error,.success{
+      display:none;
+      margin:0.4rem 0;
+      padding:0.7rem 0.9rem;
+      border-radius:0.8rem;
+      font-size:0.88rem;
+    }
+    .error{background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.6);color:#fecaca;}
+    .success{background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.6);color:#a7f3d0;}
+
+    /* GLOBE */
+    .globe-container{
+      position:relative;
+      width:100%;
+      height:330px;
+      border-radius:1rem;
+      overflow:hidden;
+      margin-bottom:1.3rem;
+      background:#020617;
+      box-shadow:0 15px 40px rgba(0,0,0,0.8);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    #globeViz{
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at center,#020617 0%,#000 100%);
+    }
+    .earth-wrapper{
+      position:relative;
+      width:240px;
+      height:240px;
+      transform-origin:center center;
+      transition:transform 1s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .earth-wrapper.zoomed{
+      transform:scale(1.3);
+    }
+    .earth-sphere{
+      width:100%;height:100%;
+      border-radius:50%;
+      position:relative;
+      overflow:hidden;
+      box-shadow:
+        inset 0 0 80px rgba(15,23,42,0.9),
+        0 0 80px rgba(37,99,235,0.9),
+        0 0 120px rgba(16,185,129,0.6);
+      background:#000;
+    }
+    .earth-texture{
+      position:absolute;
+      inset:0;
+      border-radius:50%;
+      background-image:url('https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57723/globe_east_2048.jpg');
+      background-size:280% 160%;
+      background-position:0% 50%;
+      animation:earthRotate 60s linear infinite;
+      filter:saturate(1.3) contrast(1.15) brightness(1.1);
+      opacity:1 !important;
+      visibility:visible !important;
+      will-change:transform, background-position;
+      transition:
+        background-position 1s cubic-bezier(0.4, 0, 0.2, 1),
+        background-size 1s ease;
+    }
+    .earth-texture.focused{
+      animation:none;
+      background-size:180%;
+    }
+    @keyframes earthRotate{
+      from{background-position:0% 50%;}
+      to{background-position:100% 50%;}
+    }
+
+    .cloud-texture{
+      position:absolute;inset:0;
+      border-radius:50%;
+      background:
+        radial-gradient(ellipse at 40% 30%,rgba(255,255,255,0.38) 0%,transparent 40%),
+        radial-gradient(ellipse at 65% 45%,rgba(255,255,255,0.28) 0%,transparent 40%),
+        radial-gradient(ellipse at 30% 65%,rgba(255,255,255,0.25) 0%,transparent 40%);
+      mix-blend-mode:screen;
+      opacity:0.65;
+      pointer-events:none;
+    }
+    .location-marker{
+      position:absolute;
+      left:50%;top:50%;
+      width:18px;height:18px;
+      border-radius:50%;
+      background:#ff3366;
+      border:3px solid #fff;
+      box-shadow:0 0 30px #ff3366, 0 0 60px rgba(255,51,102,0.7);
+      transform:translate(-50%,-50%);
+      opacity:0;
+      transition:opacity 0.4s;
+    }
+    .location-marker.visible{opacity:1;}
+    .location-name{
+      position:absolute;
+      left:50%;top:10px;
+      transform:translateX(-50%);
+      background:rgba(15,23,42,0.95);
+      border-radius:999px;
+      padding:6px 14px;
+      border:1px solid var(--border);
+      font-size:0.8rem;
+      white-space:nowrap;
+      display:none;
+      color:#e2e8f0;
+    }
+    .location-name.visible{display:inline-block;}
+
+    /* MAP */
+    .map-container{
+      height:320px;
+      border-radius:1rem;
+      overflow:hidden;
+      margin-bottom:1.3rem;
+      box-shadow:0 15px 40px rgba(0,0,0,0.8);
+      position:relative;
+    }
+    #map{
+      width:100%;
+      height:100%;
+      position:absolute;
+      top:0;
+      left:0;
+    }
+
+    /* WEATHER */
+    .weather-info{
+      background:rgba(30,41,59,0.7);
+      border-radius:1rem;
+      padding:1.1rem;
+      border:1px solid var(--border);
+      margin-bottom:1.2rem;
+    }
+    .weather-info h4{
+      font-size:1.05rem;
+      margin-bottom:0.4rem;
+      display:flex;
+      align-items:center;
+      gap:0.5rem;
+    }
+    #weatherLocation{
+      font-size:0.8rem;
+      color:#cbd5e1;
+      margin-bottom:0.7rem;
+    }
+    .weather-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:0.8rem;
+    }
+    .weather-item{
+      background:rgba(15,23,42,0.7);
+      border-radius:0.9rem;
+      padding:0.9rem;
+      text-align:center;
+      border:1px solid rgba(67,97,238,0.35);
+    }
+    .weather-value{font-size:1.5rem;font-weight:800;margin-bottom:0.2rem;}
+    .weather-label{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;}
+
+    /* AREA */
+    .area-details,.details{
+      background:rgba(30,41,59,0.7);
+      border-radius:1rem;
+      padding:1.1rem;
+      border:1px solid var(--border);
+      margin-bottom:1.2rem;
+    }
+    .area-details h4,.details h3{font-size:1.05rem;margin-bottom:0.7rem;}
+    .area-features{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:0.9rem;
+    }
+    .feature{display:flex;align-items:center;gap:0.7rem;}
+    .feature-icon{
+      width:38px;height:38px;
+      border-radius:0.9rem;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(67,97,238,0.25);
+      flex-shrink:0;
+    }
+    .feature-label{
+      font-size:0.7rem;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      color:#94a3b8;
+    }
+    .feature-value{font-size:0.95rem;font-weight:600;}
+
+    /* SCORE CIRCLE */
+    .score-circle{
+      width:200px;height:200px;
+      margin:1.1rem auto 0.5rem;
+      position:relative;
+    }
+    .score-value{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      font-size:3rem;font-weight:900;
+      background:linear-gradient(135deg,#60a5fa,#f472b6);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+    .score-explanation{
+      text-align:center;
+      font-size:0.83rem;
+      background:rgba(15,23,42,0.7);
+      border-radius:0.8rem;
+      padding:0.7rem;
+      margin-bottom:1.1rem;
+    }
+
+    .category-scores{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(115px,1fr));
+      gap:0.8rem;
+      margin-bottom:1.1rem;
+    }
+    .cat-score{
+      background:rgba(15,23,42,0.7);
+      border-radius:0.9rem;
+      padding:0.8rem;
+      border:1px solid var(--border);
+      font-size:0.78rem;
+      text-align:center;
+      cursor:pointer;
+      transition:0.25s ease;
+    }
+    .cat-score:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 30px rgba(0,0,0,0.4);
+    }
+    .cat-score.active{
+      border-color:var(--accent);
+      box-shadow:0 0 25px rgba(16,185,129,0.55);
+    }
+    .category-value{font-size:1.25rem;font-weight:800;margin:0.1rem 0;}
+    .category-status{
+      display:inline-block;
+      padding:0.15rem 0.5rem;
+      border-radius:999px;
+      font-size:0.7rem;
+      font-weight:600;
+    }
+    .category-status.excellent{background:rgba(16,185,129,0.2);color:#10b981;}
+    .category-status.good{background:rgba(59,130,246,0.2);color:#60a5fa;}
+    .category-status.moderate{background:rgba(245,158,11,0.2);color:#f59e0b;}
+    .category-status.poor{background:rgba(239,68,68,0.2);color:#f97373;}
+
+    .details-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:0.9rem;
+    }
+    .detail-item{
+      background:rgba(15,23,42,0.7);
+      border-radius:0.9rem;
+      padding:0.7rem;
+      border:1px solid rgba(67,97,238,0.35);
+    }
+    .detail-label{
+      font-size:0.7rem;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      color:#94a3b8;
+      margin-bottom:0.3rem;
+    }
+    .detail-value{font-size:0.96rem;font-weight:700;}
+
+    /* INSIGHT PANEL */
+    .insight-panel{
+      background:rgba(15,23,42,0.85);
+      border-radius:1rem;
+      padding:1rem 1.1rem;
+      border:1px solid rgba(16,185,129,0.5);
+      margin-bottom:1.2rem;
+      box-shadow:0 12px 30px rgba(0,0,0,0.55);
+    }
+    .insight-panel h3{
+      font-size:1rem;
+      margin-bottom:0.5rem;
+      color:#bbf7d0;
+      display:flex;
+      align-items:center;
+      gap:0.5rem;
+    }
+    .insight-panel p{
+      font-size:0.88rem;
+      margin-bottom:0.4rem;
+      color:#e2e8f0;
+    }
+    .insight-panel ul{
+      margin-left:1.1rem;
+      padding-left:0.2rem;
+      font-size:0.85rem;
+      color:#a5b4fc;
+    }
+    .insight-panel li{margin-bottom:0.25rem;}
+
+    /* IMPACT PLANNER */
+    .impact-card{
+      background:rgba(15,23,42,0.85);
+      border-radius:1rem;
+      padding:1rem 1.1rem;
+      border:1px solid rgba(96,165,250,0.6);
+      margin-bottom:1.2rem;
+    }
+    .impact-card h3{
+      font-size:1rem;
+      margin-bottom:0.6rem;
+      display:flex;
+      align-items:center;
+      gap:0.4rem;
+      color:#bfdbfe;
+    }
+    .impact-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:0.8rem;
+      margin-bottom:0.8rem;
+    }
+    .impact-field label{
+      font-size:0.78rem;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      color:#94a3b8;
+      display:block;
+      margin-bottom:0.25rem;
+    }
+    .impact-field input{
+      width:100%;
+      padding:0.55rem 0.7rem;
+      border-radius:0.7rem;
+      border:1px solid rgba(148,163,184,0.7);
+      background:rgba(15,23,42,0.85);
+      color:#e2e8f0;
+      font-size:0.9rem;
+      outline:none;
+    }
+    .impact-field input:focus{
+      border-color:#60a5fa;
+      box-shadow:0 0 0 1px rgba(96,165,250,0.7);
+    }
+    .impact-btn{
+      border:none;
+      border-radius:0.8rem;
+      padding:0.6rem 1rem;
+      font-size:0.9rem;
+      font-weight:600;
+      cursor:pointer;
+      background:linear-gradient(135deg,#60a5fa,#22c55e);
+      color:#0f172a;
+      display:inline-flex;
+      align-items:center;
+      gap:0.4rem;
+      margin-bottom:0.6rem;
+    }
+    .impact-btn i{font-size:0.9rem;}
+    .impact-results p{
+      font-size:0.84rem;
+      margin-bottom:0.25rem;
+    }
+
+    /* HISTORY */
+    .history-card{
+      background:rgba(15,23,42,0.8);
+      border-radius:1rem;
+      padding:1rem 1.1rem;
+      border:1px solid rgba(148,163,184,0.6);
+      margin-bottom:1.2rem;
+    }
+    .history-card h3{
+      font-size:0.95rem;
+      margin-bottom:0.5rem;
+      color:#e5e7eb;
+    }
+    .history-card table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:0.78rem;
+    }
+    .history-card th,
+    .history-card td{
+      padding:0.4rem 0.3rem;
+      text-align:left;
+    }
+    .history-card thead{
+      border-bottom:1px solid rgba(148,163,184,0.4);
+    }
+    .history-card tbody tr:nth-child(odd){
+      background:rgba(15,23,42,0.7);
+    }
+
+    /* GRAPH */
+    .chart-container {
+      width:100% !important;
+      height:220px !important;
+      position:relative;
+      margin-bottom:1.1rem;
+    }
+    #timelineChart{
+      width:100% !important;
+      height:100% !important;
+      background:rgba(15,23,42,0.75);
+      border-radius:1rem;
+      padding:0.7rem;
+      box-sizing:border-box;
+      display:block;
+    }
+
+    .share-section{
+      display:flex;
+      gap:0.8rem;
+      margin-top:0.8rem;
+    }
+    .share-btn{
+      flex:1;
+      border:none;
+      border-radius:0.9rem;
+      padding:0.8rem 1rem;
+      font-size:0.9rem;
+      cursor:pointer;
+      font-weight:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:0.4rem;
+      color:#fff;
+    }
+    .pdf-btn{background:#dc2626;}
+    .share-btn:not(.pdf-btn){background:var(--accent);}
+
+    .loading{
+      text-align:center;
+      padding:1.7rem 0;
+      font-size:0.9rem;
+      color:#cbd5e1;
+    }
+    .spinner{
+      width:40px;height:40px;
+      border-radius:50%;
+      border:3px solid rgba(67,97,238,0.3);
+      border-top:3px solid var(--primary);
+      margin:0 auto 1rem;
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+
+    .results-card{
+      max-height:calc(100vh - 170px);
+      overflow-y:auto;
+    }
+    .results-card::-webkit-scrollbar{width:7px;}
+    .results-card::-webkit-scrollbar-thumb{background:var(--primary);border-radius:4px;}
+
+    .footer{
+      text-align:center;
+      padding:1.4rem 0 0.5rem;
+      font-size:0.8rem;
+      margin-top:1.5rem;
+      border-top:1px solid rgba(67,97,238,0.35);
+      opacity:0.8;
+    }
+
+    @media(max-width:768px){
+      .container{padding:1rem;}
+      .header h1{font-size:2.4rem;}
+      .content{gap:1.4rem;}
+      .search-form{flex-direction:column;}
+      .search-btn{width:100%;}
+      .globe-container,.map-container{height:280px;}
+      .earth-wrapper{width:190px;height:190px;}
+      .results-card{max-height:none;}
+      .share-section{flex-direction:column;}
+    }
+  </style>
+</head>
+<body>
+  <div class="nebula-bg"></div>
+  <div class="container">
+    <div class="header">
+      <h1>EcoImpactScanner</h1>
+      <p>Interactive environmental dashboard for any location • Final-year project for Conservation of Natural Resources</p>
+    </div>
+
+    <div class="content">
+      <!-- LEFT SIDE -->
+      <div class="input-card">
+        <h2 style="font-size:1.5rem;margin-bottom:1rem;background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+          Search Location
+        </h2>
+        <div class="search-form">
+          <input id="locInput" class="search-input" placeholder="Enter city, country, pincode, landmark...">
+          <button id="searchBtn" class="search-btn">Launch Analysis</button>
+        </div>
+        <div id="errorMessage" class="error"></div>
+        <div id="successMessage" class="success"></div>
+
+        <div class="examples">
+          <h3>Try these</h3>
+          <div class="example-tags">
+            <div class="example-tag" onclick="searchExample('Delhi, India')">Delhi</div>
+            <div class="example-tag" onclick="searchExample('Mumbai, India')">Mumbai</div>
+            <div class="example-tag" onclick="searchExample('Bangalore, India')">Bangalore</div>
+            <div class="example-tag pincode" onclick="searchExample('110001 India')">110001 (Delhi)</div>
+            <div class="example-tag pincode" onclick="searchExample('560023 Bangalore')">560023 (Bangalore)</div>
+            <div class="example-tag" onclick="searchExample('Tokyo, Japan')">Tokyo</div>
+            <div class="example-tag" onclick="searchExample('Amazon Rainforest')">Amazon Rainforest</div>
+            <div class="example-tag" onclick="searchExample('Sahara Desert')">Sahara Desert</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="results-card" id="resultsCard" style="display:none;">
+        <h2 style="font-size:1.5rem;margin-bottom:1rem;background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+          Environmental Analysis
+        </h2>
+
+        <div id="loading" class="loading" style="display:none;">
+          <div class="spinner"></div>
+          <p>Analyzing location…</p>
+          <p style="font-size:0.8rem;margin-top:0.3rem;">Using OpenStreetMap + Open-Meteo (real weather, with fallback)</p>
+        </div>
+
+        <div id="resultsContent" style="display:none;">
+
+          <!-- GLOBE -->
+          <div class="globe-container">
+            <div id="globeViz"></div>
+          </div>
+
+          <!-- MAP -->
+          <div class="map-container">
+            <div id="map"></div>
+          </div>
+
+          <!-- WEATHER -->
+          <div class="weather-info">
+            <h4><i class="fas fa-cloud-sun"></i> Live Weather & Time</h4>
+            <div id="weatherLocation">Search a location to see its exact weather and local time.</div>
+            <div class="weather-grid">
+              <div class="weather-item">
+                <div class="weather-value" id="temperature">— °C</div>
+                <div class="weather-label">Temperature</div>
+              </div>
+              <div class="weather-item">
+                <div class="weather-value" id="humidity">— %</div>
+                <div class="weather-label">Humidity</div>
+              </div>
+              <div class="weather-item">
+                <div class="weather-value" id="windSpeed">— km/h</div>
+                <div class="weather-label">Wind Speed</div>
+              </div>
+              <div class="weather-item">
+                <div class="weather-value" id="localTime">—</div>
+                <div class="weather-label">Local Time (your system)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AREA DETAILS -->
+          <div class="area-details">
+            <h4>📍 Area Characteristics</h4>
+            <div class="area-features">
+              <div class="feature">
+                <div class="feature-icon" id="areaTypeIcon">🏙️</div>
+                <div>
+                  <div class="feature-label">Area Type</div>
+                  <div class="feature-value" id="areaType">—</div>
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-icon">🌡️</div>
+                <div>
+                  <div class="feature-label">Climate</div>
+                  <div class="feature-value" id="climateType">—</div>
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-icon">🌿</div>
+                <div>
+                  <div class="feature-label">Vegetation</div>
+                  <div class="feature-value" id="vegetation">—</div>
+                </div>
+              </div>
+              <div class="feature">
+                <div class="feature-icon">🌍</div>
+                <div>
+                  <div class="feature-label">Continent</div>
+                  <div class="feature-value" id="continent">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCORE CIRCLE -->
+          <div style="text-align:center;">
+            <div class="score-circle">
+              <svg viewBox="0 0 360 360">
+                <circle cx="180" cy="180" r="160" fill="none" stroke="#1e293b" stroke-width="20"/>
+                <circle cx="180" cy="180" r="160" fill="none" stroke="url(#grad)" stroke-width="24"
+                        stroke-dasharray="1005" stroke-dashoffset="1005" stroke-linecap="round"
+                        id="progressCircle"/>
+                <defs>
+                  <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#60a5fa"/>
+                    <stop offset="100%" stop-color="#10b981"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="score-value" id="ehsScore">0</div>
+            </div>
+            <div class="score-explanation">
+              Overall Environmental Health Score (0–100).  
+              90+ Excellent • 70–89 Good • 50–69 Moderate • Below 50 Needs Improvement
+            </div>
+          </div>
+
+          <!-- CATEGORY SCORES -->
+          <div class="category-scores">
+            <div class="cat-score" data-cat="land">
+              <div>Land Health</div>
+              <div class="category-value" id="land">0</div>
+              <div class="category-status" id="landStatus">—</div>
+            </div>
+            <div class="cat-score" data-cat="water">
+              <div>Water Resources</div>
+              <div class="category-value" id="water">0</div>
+              <div class="category-status" id="waterStatus">—</div>
+            </div>
+            <div class="cat-score" data-cat="air">
+              <div>Air Quality</div>
+              <div class="category-value" id="air">0</div>
+              <div class="category-status" id="airStatus">—</div>
+            </div>
+            <div class="cat-score" data-cat="bio">
+              <div>Biodiversity</div>
+              <div class="category-value" id="bio">0</div>
+              <div class="category-status" id="bioStatus">—</div>
+            </div>
+            <div class="cat-score" data-cat="climate">
+              <div>Climate Comfort</div>
+              <div class="category-value" id="climate">0</div>
+              <div class="category-status" id="climateStatus">—</div>
+            </div>
+          </div>
+
+          <!-- INSIGHT PANEL -->
+          <div class="insight-panel" id="insightPanel">
+            <h3><i class="fas fa-leaf"></i> Insight</h3>
+            <p id="insightText">Search a location to see how healthy its environment is.</p>
+            <ul id="actionList">
+              <li>Use EcoImpactScanner during your viva to show live analysis.</li>
+              <li>Compare two cities and discuss why their scores differ.</li>
+              <li>Relate scores to real conservation actions in your conclusion.</li>
+            </ul>
+          </div>
+
+          <!-- IMPACT PLANNER -->
+          <div class="impact-card">
+            <h3><i class="fas fa-seedling"></i> Local Impact Planner</h3>
+            <div class="impact-grid">
+              <div class="impact-field">
+                <label>New trees you can plant</label>
+                <input id="treeInput" type="number" min="0" placeholder="e.g. 50">
+              </div>
+              <div class="impact-field">
+                <label>Rooftop area (m²) for RWH</label>
+                <input id="roofInput" type="number" min="0" placeholder="e.g. 120">
+              </div>
+              <div class="impact-field">
+                <label>Annual rainfall (mm)</label>
+                <input id="rainInput" type="number" min="0" placeholder="e.g. 800">
+              </div>
+            </div>
+            <button id="impactBtn" class="impact-btn">
+              <i class="fas fa-calculator"></i> Simulate Environmental Impact
+            </button>
+            <div class="impact-results">
+              <p id="co2Result">🌳 Enter tree count to estimate CO₂ absorbed per year.</p>
+              <p id="waterResult">💧 Enter rooftop area + rainfall to estimate rainwater you can harvest.</p>
+              <p id="newScoreResult">📈 Add at least one action to see a projected score improvement.</p>
+            </div>
+          </div>
+
+          <!-- ENVIRONMENTAL METRICS -->
+          <div class="details">
+            <h3>Environmental Metrics (Simulated)</h3>
+            <div class="details-grid">
+              <div class="detail-item">
+                <div class="detail-label">NDVI (Vegetation Index)</div>
+                <div class="detail-value" id="ndvi">—</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Air Pollution (PM2.5)</div>
+                <div class="detail-value" id="pm25">— μg/m³</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Annual Rainfall</div>
+                <div class="detail-value" id="rainfall">— mm</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Species Richness</div>
+                <div class="detail-value" id="species">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- NDVI TIMELINE -->
+          <div class="chart-container">
+            <canvas id="timelineChart"></canvas>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="history-card">
+            <h3>Recent Analyses</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Score</th>
+                  <th>Area</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr><td colspan="4">Run a search to start building history.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SHARE & PDF -->
+          <div class="share-section">
+            <button class="share-btn pdf-btn" onclick="downloadPDF()">
+              <i class="fas fa-file-pdf"></i> PDF Report
+            </button>
+            <button class="share-btn" onclick="shareReport()">
+              <i class="fas fa-share-alt"></i> Share Summary
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      EcoImpactScanner • Pure frontend project (HTML + CSS + JavaScript + Open APIs) for Conservation of Natural Resources
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = null;
+    let marker = null;
+    let impactCircle = null;
+    let chart = null;
+    let currentData = null;
+    let searchHistory = [];
+
+    const locInput = document.getElementById('locInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultsCard = document.getElementById('resultsCard');
+    const loadingDiv = document.getElementById('loading');
+    const resultsContent = document.getElementById('resultsContent');
+    const errorDiv = document.getElementById('errorMessage');
+    const successDiv = document.getElementById('successMessage');
+
+    const treeInput = document.getElementById('treeInput');
+    const roofInput = document.getElementById('roofInput');
+    const rainInput = document.getElementById('rainInput');
+    const co2ResultEl = document.getElementById('co2Result');
+    const waterResultEl = document.getElementById('waterResult');
+    const newScoreResultEl = document.getElementById('newScoreResult');
+
+    /* ===== SMALL UTILS ===== */
+    function animateValue(el, start, end, duration = 800){
+      start = isNaN(start) ? 0 : start;
+      end = isNaN(end) ? 0 : end;
+      if (!el) return;
+      if (start === end){
+        el.textContent = end;
+        return;
+      }
+      const startTime = performance.now();
+      function frame(now){
+        const progress = Math.min((now - startTime) / duration, 1);
+        const value = Math.round(start + (end - start)*progress);
+        el.textContent = value;
+        if (progress < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    /* ===== GLOBE ===== */
+    function createEarth(){
+      const globeViz = document.getElementById('globeViz');
+      globeViz.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'earth-wrapper';
+      wrap.id = 'earthWrapper';
+
+      const sphere = document.createElement('div');
+      sphere.className = 'earth-sphere';
+
+      const tex = document.createElement('div');
+      tex.className = 'earth-texture';
+      tex.id = 'earthTexture';
+
+      const clouds = document.createElement('div');
+      clouds.className = 'cloud-texture';
+
+      const markerEl = document.createElement('div');
+      markerEl.className = 'location-marker';
+      markerEl.id = 'earthMarker';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'location-name';
+      nameEl.id = 'earthLocationName';
+
+      sphere.appendChild(tex);
+      sphere.appendChild(clouds);
+      wrap.appendChild(sphere);
+      wrap.appendChild(markerEl);
+      wrap.appendChild(nameEl);
+      globeViz.appendChild(wrap);
+    }
+
+    function updateEarth(lat, lon, locationName = null){
+      const wrap = document.getElementById('earthWrapper');
+      const tex = document.getElementById('earthTexture');
+      const markerEl = document.getElementById('earthMarker');
+      const nameEl = document.getElementById('earthLocationName');
+
+      if (!wrap || !tex || !markerEl || !nameEl){
+        createEarth();
+        setTimeout(()=>updateEarth(lat, lon, locationName), 50);
+        return;
+      }
+
+      if (!locationName){
+        tex.classList.remove('focused');
+        markerEl.classList.remove('visible');
+        nameEl.classList.remove('visible');
+        wrap.classList.remove('zoomed');
+        return;
+      }
+
+      // Use lat/lon to "pan" the texture inside the circle
+      tex.classList.add('focused');
+      let x = (lon + 180) / 360 * 100;          // -180..180 -> 0..100
+      let y = 50 - (lat / 180 * 100);           // -90..90 -> 0..100
+      x = Math.max(5, Math.min(95, x));
+      y = Math.max(5, Math.min(95, y));
+      tex.style.backgroundPosition = `${x}% ${y}%`;
+
+      markerEl.classList.add('visible');
+
+      const shortName = locationName.length > 26 ? locationName.slice(0,25) + '…' : locationName;
+      nameEl.textContent = shortName;
+      nameEl.classList.add('visible');
+
+      wrap.classList.add('zoomed');
+    }
+
+    /* ===== MAP ===== */
+    function initMap(lat = 20, lon = 0, label = null, zoom = 4){
+      const el = document.getElementById('map');
+      if (!el) return;
+
+      if (map){
+        map.remove();
+        map = null;
+      }
+      el.innerHTML = '';
+
+      map = L.map(el).setView([lat, lon], zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      if (marker) marker.remove();
+      if (impactCircle) impactCircle.remove();
+
+      if (label){
+        marker = L.marker([lat, lon])
+          .addTo(map)
+          .bindPopup(`<b>${label}</b><br>Lat: ${lat.toFixed(4)}°<br>Lon: ${lon.toFixed(4)}°`)
+          .openPopup();
+
+        // Soft eco-radius around the point (about 5 km)
+        impactCircle = L.circle([lat, lon], {
+          radius: 5000,
+          color: '#10b981',
+          weight: 1,
+          fillColor: '#10b981',
+          fillOpacity: 0.08
+        }).addTo(map);
+      }
+
+      setTimeout(() => { if (map) map.invalidateSize(); }, 120);
+    }
+
+    /* ===== GEOCODING ===== */
+    async function geocodeLocation(query){
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`
+      );
+      if (!res.ok) throw new Error('Geocoding service unavailable');
+      const data = await res.json();
+      if (!data || !data.length) throw new Error('Location not found. Try another name or pincode.');
+
+      const r = data[0];
+      let displayName = r.display_name;
+      if (/^\d{6}/.test(query)){
+        const parts = displayName.split(',');
+        if (parts.length > 2){
+          displayName = `${parts[0].trim()}, ${parts[1].trim()}, ${parts[parts.length-1].trim()}`;
+        }
+      } else {
+        const parts = displayName.split(',');
+        if (parts.length > 2){
+          displayName = `${parts[0].trim()}, ${parts[1].trim()}`;
+        }
+      }
+      return {
+        name: displayName,
+        lat: parseFloat(r.lat),
+        lon: parseFloat(r.lon),
+        address: r.address || {}
+      };
+    }
+
+    function getContinent(lat, lon){
+      if (lat > 10 && lat < 55 && lon > 35 && lon < 140) return 'Asia';
+      if (lat > -35 && lat < 40 && lon > -20 && lon < 50) return 'Africa';
+      if (lat > 35 && lat < 72 && lon > -10 && lon < 40) return 'Europe';
+      if (lat > 15 && lat < 72 && lon > -170 && lon < -50) return 'North America';
+      if (lat > -56 && lat < 15 && lon > -85 && lon < -30) return 'South America';
+      if (lat < -10) return 'Australia / Oceania';
+      if (lat > 66) return 'Arctic';
+      return 'Global';
+    }
+
+    function getAreaFeatures(name, coords){
+      const n = name.toLowerCase();
+      let areaType='Urban Area', climate='Temperate', veg='Moderate', icon='🏙️';
+
+      if (n.includes('desert') || n.includes('sahara')){
+        areaType='Desert'; climate='Hot Desert'; veg='Sparse'; icon='🏜️';
+      } else if (n.includes('amazon') || n.includes('rainforest')){
+        areaType='Rainforest'; climate='Tropical'; veg='Very dense'; icon='🌴';
+      } else if (n.includes('mountain') || n.includes('himalaya') || n.includes('alps')){
+        areaType='Mountainous'; climate='Alpine'; veg='Varied'; icon='⛰️';
+      } else if (n.includes('island') || n.includes('beach') || n.includes('coastal')){
+        areaType='Coastal / Island'; climate='Maritime'; veg='Moderate'; icon='🏖️';
+      } else if (n.includes('forest') || n.includes('jungle')){
+        areaType='Forest'; climate='Tropical / Temperate'; veg='Dense'; icon='🌲';
+      } else if (/^\d{6}/.test(name)){
+        areaType='Urban Postal Area'; icon='📮';
+      }
+
+      return {
+        areaType,
+        climateType: climate,
+        vegetation: veg,
+        areaIcon: icon,
+        continent: getContinent(coords.lat, coords.lon)
+      };
+    }
+
+    /* ===== WEATHER: REAL + FALLBACK ===== */
+    async function fetchWeather(lat, lon){
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                  `&current_weather=true&hourly=relativehumidity_2m&timezone=auto`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Weather service unavailable');
+      const data = await res.json();
+      const cw = data.current_weather;
+      let humidity = 60;
+      if (data.hourly && data.hourly.relativehumidity_2m && data.hourly.time){
+        const idx = data.hourly.time.indexOf(cw.time);
+        humidity = idx >= 0 ? data.hourly.relativehumidity_2m[idx] : data.hourly.relativehumidity_2m[0];
+      }
+      return {
+        temperature: cw.temperature,
+        windSpeed: cw.windspeed,
+        humidity,
+        localTime: new Date(cw.time),
+        timezoneAbbr: data.timezone_abbreviation || '',
+        timezone: data.timezone || ''
+      };
+    }
+
+    function fallbackWeather(lat, lon, locationName){
+      const now = new Date();
+      const month = now.getMonth();
+      const hour = now.getHours();
+      const name = (locationName || '').toLowerCase();
+
+      let baseTemp = 25 - Math.abs(lat) * 0.3;
+      if (lat > 0){
+        if (month >= 11 || month <= 1) baseTemp -= 8;
+        else if (month >= 4 && month <= 8) baseTemp += 6;
+      } else {
+        if (month >= 4 && month <= 8) baseTemp -= 8;
+        else if (month >= 11 || month <= 1) baseTemp += 6;
+      }
+
+      if (hour >= 0 && hour <= 5) baseTemp -= 5;
+      else if (hour >= 12 && hour <= 15) baseTemp += 3;
+      else if (hour >= 20 && hour <= 23) baseTemp -= 3;
+
+      if (name.includes('desert') || name.includes('sahara')) baseTemp += 10;
+      if (name.includes('amazon') || name.includes('rainforest')) baseTemp += 3;
+
+      const temperature = Math.round(baseTemp + (Math.random()*4 - 2));
+      let humidity = 55 + (Math.random()*20 - 10);
+      if (name.includes('desert')) humidity = 20 + Math.random()*10;
+      if (name.includes('rainforest') || name.includes('coast') || name.includes('beach')) humidity = 70 + Math.random()*15;
+
+      const windSpeed = Math.round(5 + Math.random()*20);
+
+      return {
+        temperature,
+        humidity: Math.round(humidity),
+        windSpeed,
+        localTime: now,
+        timezoneAbbr: 'Local',
+        timezone: 'Local'
+      };
+    }
+
+    function updateWeatherDisplay(w, locationName){
+      document.getElementById('temperature').innerHTML = `${Math.round(w.temperature)} °C`;
+      document.getElementById('humidity').innerHTML = `${Math.round(w.humidity)} %`;
+      document.getElementById('windSpeed').innerHTML = `${Math.round(w.windSpeed)} km/h`;
+
+      const dateStr = w.localTime.toLocaleDateString('en-IN',{
+        weekday:'short', year:'numeric', month:'short', day:'numeric'
+      });
+      document.getElementById('weatherLocation').textContent =
+        `${locationName} • ${dateStr} • ${w.timezoneAbbr || w.timezone}`;
+    }
+
+    /* ===== SCORES & INSIGHTS ===== */
+    function getScoreStatus(score){
+      if (score >= 90) return {text:'Excellent',class:'excellent'};
+      if (score >= 70) return {text:'Good',class:'good'};
+      if (score >= 50) return {text:'Moderate',class:'moderate'};
+      return {text:'Needs Improvement',class:'poor'};
+    }
+
+    function generateScores(name, coords){
+      const n = name.toLowerCase();
+      let base = 50;
+      if (n.includes('delhi') || n.includes('110001')) base = 35;
+      else if (n.includes('mumbai')) base = 40;
+      else if (n.includes('bangalore') || n.includes('560023')) base = 48;
+      else if (n.includes('tokyo') || n.includes('london') || n.includes('paris')) base = 65;
+      else if (n.includes('amazon') || n.includes('rainforest')) base = 85;
+      else if (n.includes('sahara') || n.includes('desert')) base = 25;
+      else if (n.includes('himalaya') || n.includes('mountain')) base = 70;
+
+      const variation = Math.random()*14 - 7;
+      const ehs = Math.max(0,Math.min(100,Math.round(base + variation)));
+      const jitter = () => Math.max(0,Math.min(100, ehs + (Math.random()*10 - 5)));
+
+      return {
+        ehs,
+        land:Math.round(jitter()),
+        water:Math.round(jitter()),
+        air:Math.round(jitter()),
+        bio:Math.round(jitter()),
+        climate:Math.round(jitter()),
+        details:{
+          ndvi:(Math.random()*0.7 + 0.2).toFixed(2),
+          pm25_ugm3:Math.round(Math.random()*80 + 15),
+          annual_rainfall_mm:Math.round(Math.random()*2500 + 200),
+          species_richness_index:(Math.random()*0.8 + 0.2).toFixed(2),
+          temp_anomaly_c:(Math.random()*2 - 1).toFixed(1)
+        }
+      };
+    }
+
+    function updateInsights(data, focusCat = null){
+      if (!data) return;
+      const s = data.scores;
+      const insightText = document.getElementById('insightText');
+      const actionList = document.getElementById('actionList');
+      const cats = {
+        land:{label:'Land health', value:s.land},
+        water:{label:'Water resources', value:s.water},
+        air:{label:'Air quality', value:s.air},
+        bio:{label:'Biodiversity', value:s.bio},
+        climate:{label:'Climate comfort', value:s.climate}
+      };
+
+      let mainCatKey = focusCat;
+      if (!mainCatKey){
+        // pick weakest category by score
+        mainCatKey = Object.keys(cats).reduce((minKey, key) =>
+          cats[key].value < cats[minKey].value ? key : minKey
+        , 'land');
+      }
+      const mainCat = cats[mainCatKey];
+      const status = getScoreStatus(mainCat.value);
+
+      insightText.textContent =
+        `${data.resolved_name} has ${status.text.toLowerCase()} ${mainCat.label.toLowerCase()} (score ${mainCat.value}/100).`;
+
+      const actions = [];
+      if (status.text === 'Excellent'){
+        actions.push('Protect existing green and blue spaces with strict zoning or eco-parks.');
+        actions.push('Use this location as a benchmark in your report for “best-case” scenario.');
+        actions.push('Propose citizen science programs to monitor any early warning signs.');
+      } else if (status.text === 'Good'){
+        actions.push('Introduce small interventions like rooftop gardens and rainwater harvesting.');
+        actions.push('Promote public transport and non-motorized mobility in your suggestions.');
+        actions.push('Highlight how maintaining current policies can prevent degradation.');
+      } else if (status.text === 'Moderate'){
+        actions.push('Identify hotspots for tree plantation or wetland restoration in your project.');
+        actions.push('Suggest stricter emission control or waste management near dense zones.');
+        actions.push('Use EcoImpactScanner to compare with a healthier reference city in viva.');
+      } else {
+        actions.push('Recommend emergency interventions like pollution control and habitat protection.');
+        actions.push('Point out vulnerable communities in low-score zones in your case study.');
+        actions.push('Propose long-term policy and awareness campaigns as part of your conclusion.');
+      }
+
+      actionList.innerHTML = '';
+      actions.forEach(a => {
+        const li = document.createElement('li');
+        li.textContent = a;
+        actionList.appendChild(li);
+      });
+
+      // Highlight active category card
+      document.querySelectorAll('.cat-score').forEach(card => {
+        card.classList.toggle('active', card.dataset.cat === mainCatKey);
+      });
+    }
+
+    /* ===== IMPACT PLANNER ===== */
+    function simulateImpact(){
+      if (!currentData){
+        showError('Search a location first, then use the Local Impact Planner.');
+        return;
+      }
+      const s = currentData.scores;
+      const baseScore = s.ehs;
+
+      const trees = parseFloat(treeInput.value) || 0;
+      const roofArea = parseFloat(roofInput.value) || 0;
+      const annualRain = parseFloat(rainInput.value) || 0;
+
+      // CO₂ absorption estimate: ~21 kg/year per tree (simple assumption)
+      let co2AbsorptionKg = 0;
+      if (trees > 0){
+        co2AbsorptionKg = trees * 21;
+        co2ResultEl.innerHTML =
+          `🌳 Planting <strong>${trees}</strong> trees could absorb around <strong>${Math.round(co2AbsorptionKg)} kg of CO₂ per year</strong> (approx).`;
+      } else {
+        co2ResultEl.textContent = '🌳 Enter a tree count to estimate CO₂ absorbed per year.';
+      }
+
+      // Rainwater harvesting: volume (litres) = area (m²) * rainfall (mm)
+      let harvestedLitres = 0;
+      if (roofArea > 0 && annualRain > 0){
+        harvestedLitres = roofArea * annualRain; // 1 mm on 1 m² = 1 litre
+        const thousandLitres = (harvestedLitres / 1000).toFixed(1);
+        waterResultEl.innerHTML =
+          `💧 With <strong>${roofArea} m²</strong> rooftop and <strong>${annualRain} mm</strong> annual rain, you can harvest around <strong>${thousandLitres} thousand litres</strong> of water per year.`;
+      } else {
+        waterResultEl.textContent =
+          '💧 Enter rooftop area + rainfall to estimate rainwater you can harvest.';
+      }
+
+      // Projected score improvement (small boost, capped)
+      let improvement = 0;
+      if (trees > 0){
+        improvement += Math.min(8, trees * 0.05);          // max +8 from trees
+      }
+      if (harvestedLitres > 0){
+        improvement += Math.min(6, harvestedLitres / 10000); // max +6 from water
+      }
+      const newScore = Math.round(Math.min(100, baseScore + improvement));
+
+      if (improvement > 0){
+        newScoreResultEl.innerHTML =
+          `📈 If these actions are implemented, the Environmental Health Score for <strong>${currentData.resolved_name}</strong> could improve from <strong>${baseScore}</strong> to around <strong>${newScore}</strong> (simulated).`;
+      } else {
+        newScoreResultEl.textContent =
+          '📈 Add at least one action (trees or rainwater harvesting) to see a projected Environmental Health Score.';
+      }
+    }
+
+    /* ===== HISTORY ===== */
+    function updateHistory(data){
+      const historyBody = document.getElementById('historyBody');
+      if (!historyBody) return;
+
+      // store last 6 items
+      const entry = {
+        name: data.resolved_name,
+        score: data.scores.ehs,
+        area: document.getElementById('areaType').textContent || '—',
+        time: new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})
+      };
+      searchHistory.unshift(entry);
+      if (searchHistory.length > 6) searchHistory.pop();
+
+      historyBody.innerHTML = '';
+      searchHistory.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${h.name}</td>
+          <td>${h.score}</td>
+          <td>${h.area}</td>
+          <td>${h.time}</td>
+        `;
+        historyBody.appendChild(tr);
+      });
+    }
+
+    function showError(msg){
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+      successDiv.style.display = 'none';
+    }
+    function showSuccess(msg){
+      successDiv.textContent = msg;
+      successDiv.style.display = 'block';
+      errorDiv.style.display = 'none';
+    }
+
+    async function updateResults(data){
+      // Globe & Map
+      updateEarth(data.coordinates.lat, data.coordinates.lon, data.resolved_name);
+      initMap(data.coordinates.lat, data.coordinates.lon, data.resolved_name, 12);
+
+      // Weather
+      try{
+        const w = await fetchWeather(data.coordinates.lat, data.coordinates.lon);
+        updateWeatherDisplay(w, data.resolved_name);
+      }catch(e){
+        console.error('Weather API failed, using fallback', e);
+        const w = fallbackWeather(data.coordinates.lat, data.coordinates.lon, data.resolved_name);
+        updateWeatherDisplay(w, data.resolved_name);
+      }
+
+      // Area characteristics
+      const af = getAreaFeatures(data.resolved_name, data.coordinates);
+      document.getElementById('areaType').textContent = af.areaType;
+      document.getElementById('areaTypeIcon').textContent = af.areaIcon;
+      document.getElementById('climateType').textContent = af.climateType;
+      document.getElementById('vegetation').textContent = af.vegetation;
+      document.getElementById('continent').textContent = af.continent;
+
+      // Scores with animation
+      const s = data.scores;
+      const circ = 1005;
+      const ehsEl = document.getElementById('ehsScore');
+      const prevEhs = parseInt(ehsEl.textContent) || 0;
+      animateValue(ehsEl, prevEhs, s.ehs, 900);
+      document.getElementById('progressCircle').style.strokeDashoffset =
+        circ - (s.ehs/100)*circ;
+
+      const cats = ['land','water','air','bio','climate'];
+      cats.forEach(c=>{
+        const val = s[c];
+        const valEl = document.getElementById(c);
+        const prev = parseInt(valEl.textContent) || 0;
+        animateValue(valEl, prev, val, 700);
+        const st = getScoreStatus(val);
+        const el = document.getElementById(c+'Status');
+        el.textContent = st.text;
+        el.className = 'category-status ' + st.class;
+      });
+
+      // Details
+      document.getElementById('ndvi').textContent = s.details.ndvi;
+      document.getElementById('pm25').textContent = `${s.details.pm25_ugm3} μg/m³`;
+      document.getElementById('rainfall').textContent = `${s.details.annual_rainfall_mm.toLocaleString()} mm`;
+      document.getElementById('species').textContent = s.details.species_richness_index;
+
+      // NDVI trend graph
+      const lastNdvi = parseFloat(s.details.ndvi);
+      const years = ['2019','2020','2021','2022','2023','2024'];
+      const improving = s.ehs >= 60;
+      const series = [];
+      let v = improving ? lastNdvi - 0.05*(years.length-1) : lastNdvi + 0.05*(years.length-1);
+      for (let i=0;i<years.length;i++){
+        series.push(Math.max(0,Math.min(1,v)));
+        v += improving ? 0.05 : -0.05;
+      }
+
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('timelineChart').getContext('2d');
+      chart = new Chart(ctx,{
+        type:'line',
+        data:{
+          labels:years,
+          datasets:[{
+            label:`NDVI trend near ${data.resolved_name} (simulated)`,
+            data:series,
+            borderColor:'#10b981',
+            backgroundColor:'rgba(16,185,129,0.15)',
+            tension:0.35,
+            borderWidth:2,
+            fill:true,
+            pointRadius:3
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{
+            legend:{labels:{color:'#e2e8f0',font:{size:9}}}
+          },
+          scales:{
+            x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(148,163,184,0.1)'}},
+            y:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(148,163,184,0.1)'},min:0,max:1}
+          }
+        }
+      });
+
+      setTimeout(() => { if (chart) chart.resize(); }, 200);
+
+      // Insights & history & planner baseline text
+      updateInsights(data);
+      updateHistory(data);
+      simulateImpact(); // refresh planner text based on new base score
+    }
+
+    async function search(location){
+      if (!location) location = locInput.value.trim();
+      if (!location){ showError('Please enter a location'); return; }
+
+      errorDiv.style.display='none';
+      successDiv.style.display='none';
+      resultsCard.style.display='block';
+      loadingDiv.style.display='block';
+      resultsContent.style.display='none';
+      searchBtn.disabled = true;
+      searchBtn.textContent = 'Analyzing…';
+
+      try{
+        const geo = await geocodeLocation(location);
+        const scores = generateScores(geo.name, {lat:geo.lat, lon:geo.lon});
+        const data = {
+          location_input:location,
+          resolved_name:geo.name,
+          coordinates:{lat:geo.lat, lon:geo.lon},
+          scores,
+          generated_at:new Date().toISOString()
+        };
+        currentData = data;
+        await updateResults(data);
+        loadingDiv.style.display='none';
+        resultsContent.style.display='block';
+        showSuccess(`Analysis complete for ${geo.name}`);
+      }catch(e){
+        console.error(e);
+        showError(e.message || 'Failed to analyze this location');
+        loadingDiv.style.display='none';
+      }finally{
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Launch Analysis';
+      }
+    }
+
+    function searchExample(loc){
+      locInput.value = loc;
+      search(loc);
+    }
+
+    async function downloadPDF(){
+      if (!currentData){ showError('Search a location first'); return; }
+
+      if (!window.jspdf){
+        showError('PDF library failed to load. Check your internet connection.');
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+
+      const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const w = pdf.internal.pageSize.getWidth();
+      const h = pdf.internal.pageSize.getHeight();
+
+      pdf.setFontSize(22);
+      pdf.setTextColor(60,90,200);
+      pdf.text('EcoImpactScanner Report', w/2, 18, {align:'center'});
+
+      pdf.setFontSize(13);
+      pdf.setTextColor(0,0,0);
+      pdf.text(`Location: ${currentData.resolved_name}`, 20, 35);
+      pdf.setFontSize(11);
+      pdf.text(`Lat: ${currentData.coordinates.lat.toFixed(4)}°, Lon: ${currentData.coordinates.lon.toFixed(4)}°`, 20, 43);
+      pdf.text(`Generated: ${new Date(currentData.generated_at).toLocaleString()}`, 20, 51);
+
+      pdf.setFontSize(14);
+      pdf.setTextColor(16,185,129);
+      pdf.text(`Overall Environmental Health Score: ${currentData.scores.ehs}/100`, 20, 68);
+
+      const s = currentData.scores;
+      pdf.setFontSize(12);
+      pdf.setTextColor(0,0,0);
+      pdf.text('Category Scores:', 20, 82);
+      const lines = [
+        `Land Health: ${s.land}/100`,
+        `Water Resources: ${s.water}/100`,
+        `Air Quality: ${s.air}/100`,
+        `Biodiversity: ${s.bio}/100`,
+        `Climate Comfort: ${s.climate}/100`
+      ];
+      let y = 90;
+      lines.forEach(l=>{ pdf.text('• ' + l, 22, y); y+=7; });
+
+      pdf.text('Environmental Metrics (simulated):', 20, y+4);
+      y += 12;
+      pdf.text(`• NDVI: ${s.details.ndvi}`, 22, y); y+=7;
+      pdf.text(`• PM2.5: ${s.details.pm25_ugm3} μg/m³`, 22, y); y+=7;
+      pdf.text(`• Annual Rainfall: ${s.details.annual_rainfall_mm.toLocaleString()} mm`, 22, y); y+=7;
+      pdf.text(`• Species Richness: ${s.details.species_richness_index}`, 22, y);
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(120,120,120);
+      pdf.text('EcoImpactScanner • Frontend academic project for Conservation of Natural Resources', w/2, h-10, {align:'center'});
+
+      pdf.save(`EcoImpactScanner_${currentData.resolved_name.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+      showSuccess('PDF downloaded');
+    }
+
+    async function shareReport(){
+      if (!currentData){ showError('Search a location first'); return; }
+      const s = currentData.scores;
+      const st = getScoreStatus(s.ehs);
+      const txt = `EcoImpactScanner Report
+Location: ${currentData.resolved_name}
+Overall Score: ${s.ehs}/100 (${st.text})
+Land: ${s.land}, Water: ${s.water}, Air: ${s.air}, Biodiversity: ${s.bio}, Climate: ${s.climate}`;
+
+      try{
+        if (navigator.share){
+          await navigator.share({title:`EcoImpactScanner – ${currentData.resolved_name}`, text:txt});
+        }else{
+          await navigator.clipboard.writeText(txt);
+          showSuccess('Summary copied to clipboard');
+        }
+      }catch(e){
+        try{
+          await navigator.clipboard.writeText(txt);
+          showSuccess('Summary copied to clipboard');
+        }catch{
+          showError('Unable to share');
+        }
+      }
+    }
+
+    // Global live clock (updates every second)
+    function startClock(){
+      const updateClock = () => {
+        const localTimeEl = document.getElementById('localTime');
+        if (!localTimeEl) return;
+        const now = new Date();
+        const h = now.getHours();
+        const m = String(now.getMinutes()).padStart(2,'0');
+        const s = String(now.getSeconds()).padStart(2,'0');
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const dispH = h % 12 || 12;
+        localTimeEl.textContent = `${dispH}:${m}:${s} ${ampm}`;
+      };
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+
+    window.addEventListener('DOMContentLoaded',()=>{
+      createEarth();
+      initMap();
+
+      searchBtn.addEventListener('click',()=>search());
+      locInput.addEventListener('keypress',e=>{if(e.key==='Enter')search();});
+
+      // Category click → focus insights on that category
+      document.querySelectorAll('.cat-score').forEach(card => {
+        card.addEventListener('click', () => {
+          if (!currentData) return;
+          const cat = card.dataset.cat;
+          updateInsights(currentData, cat);
+        });
+      });
+
+      document.getElementById('impactBtn').addEventListener('click', simulateImpact);
+
+      startClock();
+    });
+  </script>
+</body>
+</html>
